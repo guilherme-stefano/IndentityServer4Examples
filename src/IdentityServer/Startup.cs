@@ -3,9 +3,11 @@
 
 
 using System;
+using IdentityServer4;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 
 namespace IdentityServer
 {
@@ -21,12 +23,13 @@ namespace IdentityServer
         public void ConfigureServices(IServiceCollection services)
         {
             // uncomment, if you wan to add an MVC-based UI
-            //services.AddMvc().SetCompatibilityVersion(Microsoft.AspNetCore.Mvc.CompatibilityVersion.Version_2_1);
+            services.AddMvc().SetCompatibilityVersion(Microsoft.AspNetCore.Mvc.CompatibilityVersion.Version_2_1);
 
             var builder = services.AddIdentityServer()
                 .AddInMemoryIdentityResources(Config.GetIdentityResources())
                 .AddInMemoryApiResources(Config.GetApis())
-                .AddInMemoryClients(Config.GetClients());
+                .AddInMemoryClients(Config.GetClients())
+                .AddTestUsers(Config.GetUsers());
 
             if (Environment.IsDevelopment())
             {
@@ -36,6 +39,30 @@ namespace IdentityServer
             {
                 throw new Exception("need to configure key material");
             }
+
+            services.AddAuthentication()
+              .AddGoogle("Google", options =>
+              {
+                  options.SignInScheme = IdentityServerConstants.ExternalCookieAuthenticationScheme;
+
+                  options.ClientId = "<insert here>";
+                  options.ClientSecret = "<insert here>";
+              })
+              .AddOpenIdConnect("oidc", "OpenID Connect", options =>
+              {
+                  options.SignInScheme = IdentityServerConstants.ExternalCookieAuthenticationScheme;
+                  options.SignOutScheme = IdentityServerConstants.SignoutScheme;
+                  options.SaveTokens = true;
+
+                  options.Authority = "https://demo.identityserver.io/";
+                  options.ClientId = "implicit";
+
+                  options.TokenValidationParameters = new TokenValidationParameters
+                  {
+                      NameClaimType = "name",
+                      RoleClaimType = "role"
+                  };
+              });
         }
 
         public void Configure(IApplicationBuilder app)
@@ -46,12 +73,12 @@ namespace IdentityServer
             }
 
             // uncomment if you want to support static files
-            //app.UseStaticFiles();
+            app.UseStaticFiles();
 
             app.UseIdentityServer();
 
             // uncomment, if you wan to add an MVC-based UI
-            //app.UseMvcWithDefaultRoute();
+            app.UseMvcWithDefaultRoute();
         }
     }
 }
